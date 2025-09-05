@@ -21,7 +21,7 @@ final actor RulesEngine<Context: ApplicationContextProtocol,
     /// Default fallback decision if no rules match.
     private let fallback: EvaluationResult<Rule>
     
-    /// The last decision computed by `makeDecision()`.
+    /// The last decision computed by `makeOutcome()`.
     internal private(set) var lastOutcome: EvaluationResult<Rule>?
     
     // MARK: - Init

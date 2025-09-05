@@ -6,7 +6,6 @@
 
 import Foundation
 
-
 // Type-erased wrapper for any Rule, with tracking original rule type
 struct AnyRule<Context: ApplicationContextProtocol, Outcome>: RuleProtocol {
 
