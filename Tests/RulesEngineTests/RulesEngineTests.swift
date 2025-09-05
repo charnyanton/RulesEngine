@@ -13,7 +13,7 @@ func testPriorityOrdering() async {
     let main = [anyB, anyA] // intentionally shuffled
     let fallback = EvaluationResult(decision: .x, reason: anyA)
     let engine = RulesEngine(rules: main, overrideRules: [], fallback: fallback, defaultContext: ctxB)
-    let result = await engine.makeDecision()
+    let result = await engine.makeOutcome()
     #expect(result.decision == .b)
     #expect(result.reason.isRuleType(RuleB.self))
 }
@@ -28,7 +28,7 @@ func testOverridePath() async {
     // A fires for ctxTrue and is overridable, then X overrides
     let fallback = EvaluationResult(decision: .x, reason: anyA)
     let engine = RulesEngine(rules: [anyB, anyA], overrideRules: [anyX], fallback: fallback, defaultContext: ctxA)
-    let result = await engine.makeDecision()
+    let result = await engine.makeOutcome()
     #expect(result.decision == .x)
     #expect(result.reason.isRuleType(OverrideRuleX.self))
 }
@@ -58,7 +58,7 @@ func testFallbackWhenNoRulesFire() async {
 
     let fallback = EvaluationResult(decision: .x, reason: never)
     let engine = RulesEngine(rules: [never], overrideRules: [], fallback: fallback, defaultContext: ctxA)
-    let res = await engine.makeDecision()
+    let res = await engine.makeOutcome()
     #expect(res.decision == .x)
 }
 
@@ -74,13 +74,13 @@ func testUpdateContext() async {
     let engine = RulesEngine(rules: [anyB, anyA], overrideRules: [anyX], fallback: fallback, defaultContext: ctxB)
 
     // Initially, flag is false, so B fires, But B is overridable, so X ovverides it
-    let initialDecision = await engine.makeDecision()
+    let initialDecision = await engine.makeOutcome()
     #expect(initialDecision.decision == .x)
     #expect(initialDecision.reason.isRuleType(OverrideRuleX.self))
 
     // Update context to true, now A fires and is overridden by X
     await engine.updateContext(ctxA)
-    let updatedDecision = await engine.makeDecision()
+    let updatedDecision = await engine.makeOutcome()
     #expect(updatedDecision.decision == .x)
     #expect(updatedDecision.reason.isRuleType(OverrideRuleX.self))
 }
@@ -97,19 +97,56 @@ func testNonOverridableRuleNotOverridden() async {
     let fallback = EvaluationResult(decision: .x, reason: anyA)
     let engine = RulesEngine(rules: [anyA, anyB, anyC], overrideRules: [anyX], fallback: fallback, defaultContext: ctxC)
 
-    let result = await engine.makeDecision()
+    let result = await engine.makeOutcome()
     #expect(result.decision == .c)
     #expect(result.reason.isRuleType(NonOverridableRuleC.self))
 }
 
+@Test
+func testDependencyRuleRespectsFlag() async {
+    // Rule should fire if dependencyEnabled is true
+    let contextEnabled = SampleContext(outcome: .dependency, dependencyEnabled: true)
+    let dependencyRule = AnyRule(DependencyRule())
+    let fallback = EvaluationResult(decision: .x, reason: dependencyRule)
+    let engineEnabled = RulesEngine(
+        rules: [dependencyRule],
+        overrideRules: [],
+        fallback: fallback,
+        defaultContext: contextEnabled
+    )
+    let resultEnabled = await engineEnabled.makeOutcome()
+    #expect(resultEnabled.decision == .dependency)
+    #expect(resultEnabled.reason.isRuleType(DependencyRule.self))
+
+    // Rule should not fire if dependencyEnabled is false, fallback should be used
+    let contextDisabled = SampleContext(outcome: .dependency, dependencyEnabled: false)
+    let engineDisabled = RulesEngine(
+        rules: [dependencyRule],
+        overrideRules: [],
+        fallback: fallback,
+        defaultContext: contextDisabled
+    )
+    let resultDisabled = await engineDisabled.makeOutcome()
+    #expect(resultDisabled.decision == .x)
+    #expect(resultDisabled.reason.isRuleType(DependencyRule.self))
+}
+
+// MARK: - Helpers
 private struct SampleContext: ApplicationContextProtocol {
     let outcome: Outcome
+    let dependencyEnabled: Bool
     
     enum Outcome: String, Equatable {
         case a
         case b
         case c
         case x
+        case dependency
+    }
+    
+    init(outcome: Outcome, dependencyEnabled: Bool = false) {
+        self.outcome = outcome
+        self.dependencyEnabled = dependencyEnabled
     }
 }
 
@@ -172,6 +209,19 @@ private struct OverrideRuleX: RuleProtocol {
     }
 }
 
+private struct DependencyRule: RuleProtocol {
+    typealias Context = SampleContext
+    typealias Outcome = SampleContext.Outcome
+    let priority: Int = 15
+    let isOverridable: Bool = true
+    func evaluate(context: SampleContext) -> SampleContext.Outcome? {
+        if context.outcome == .dependency && context.dependencyEnabled {
+            return .dependency
+        }
+        return nil
+    }
+}
+
 // Build rules that do not fire for this context
 private struct NeverRule: RuleProtocol {
     typealias Context = SampleContext
@@ -180,3 +230,5 @@ private struct NeverRule: RuleProtocol {
     let isOverridable: Bool = true
     func evaluate(context: SampleContext) -> SampleContext.Outcome? { return nil }
 }
+
+

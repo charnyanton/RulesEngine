@@ -22,7 +22,7 @@ final actor RulesEngine<Context: ApplicationContextProtocol,
     private let fallback: EvaluationResult<Rule>
     
     /// The last decision computed by `makeDecision()`.
-    internal private(set) var lastDecision: EvaluationResult<Rule>?
+    internal private(set) var lastOutcome: EvaluationResult<Rule>?
     
     // MARK: - Init
     /// Initializes a new generic decision maker with given rules and context.
@@ -47,10 +47,10 @@ final actor RulesEngine<Context: ApplicationContextProtocol,
     // MARK: - Internal methods
     
     /// Computes and returns a new decision based on current rules and context.
-    internal func makeDecision() -> EvaluationResult<Rule> {
+    internal func makeOutcome() -> EvaluationResult<Rule> {
         // Compute the decision and store it.
-        let result = self.computeDecision()
-        self.lastDecision = result
+        let result = self.computeOutcome()
+        self.lastOutcome = result
         return result
     }
     
@@ -79,7 +79,7 @@ final actor RulesEngine<Context: ApplicationContextProtocol,
     
     /// Returns the last decision computed by the actor.
     internal func getActualDecision() -> EvaluationResult<Rule>? {
-        return self.lastDecision
+        return self.lastOutcome
     }
     
     /// Updates the internal context used for decision evaluation.
@@ -92,7 +92,7 @@ final actor RulesEngine<Context: ApplicationContextProtocol,
     
     /// Internal method to compute the effective decision, applying main rules first and then override rules.
     /// - Returns: The final decision with its triggering rule.
-    private func computeDecision() -> EvaluationResult<Rule> {
+    private func computeOutcome() -> EvaluationResult<Rule> {
         // Evaluate main rules first.
         guard let decision = self.evaluateMainRules(context: self.context) else {
             // No main rules matched; return fallback.

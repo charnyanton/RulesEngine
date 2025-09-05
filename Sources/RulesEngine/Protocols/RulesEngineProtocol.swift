@@ -15,7 +15,7 @@ protocol RulesEngineProtocol: Actor {
     associatedtype Rule: RuleProtocol where Rule.Context == Context
 
     /// Computes and returns a new decision along with its triggering rule.
-    func makeDecision() -> EvaluationResult<Rule>
+    func makeOutcome() -> EvaluationResult<Rule>
 
     /// Adds a new main rule.
     func addRule(_ rule: Rule)
